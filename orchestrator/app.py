@@ -582,7 +582,11 @@ def ensure_worktree(project: str, tid: str) -> tuple[Path, bool]:
         raise RuntimeError(f"not a git repo: {repo}")
     if wt.exists():
         return wt, True
-    r = git(repo, "worktree", "add", str(wt), "-b", f"task/{tid}", "main")
+    check_b = git(repo, "rev-parse", "--verify", f"task/{tid}")
+    if check_b.returncode == 0:
+        r = git(repo, "worktree", "add", str(wt), f"task/{tid}")
+    else:
+        r = git(repo, "worktree", "add", str(wt), "-b", f"task/{tid}", "main")
     if r.returncode != 0:
         raise RuntimeError(f"worktree add failed: {r.stderr.strip()}")
     return wt, False
