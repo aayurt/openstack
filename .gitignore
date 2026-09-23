@@ -1,0 +1,15 @@
+# Secrets
+.env
+*.env
+!.env.example
+
+# Runtime state (OpenClaw home: secrets, sessions, memory)
+.openclaw/
+
+# OS noise
+.DS_Store
+*.log
+node_modules/
+
+# Separate git repos
+projects/
