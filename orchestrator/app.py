@@ -18,6 +18,7 @@ import asyncio
 import json
 import os
 import re
+import shutil
 import sqlite3
 import subprocess
 import threading
@@ -581,7 +582,10 @@ def ensure_worktree(project: str, tid: str) -> tuple[Path, bool]:
     if not (repo / ".git").is_dir() and not (repo / ".git").is_file():
         raise RuntimeError(f"not a git repo: {repo}")
     if wt.exists():
-        return wt, True
+        check_wt = git(wt, "rev-parse", "--is-inside-work-tree")
+        if check_wt.returncode == 0:
+            return wt, True
+        shutil.rmtree(wt, ignore_errors=True)
     check_b = git(repo, "rev-parse", "--verify", f"task/{tid}")
     if check_b.returncode == 0:
         r = git(repo, "worktree", "add", str(wt), f"task/{tid}")
