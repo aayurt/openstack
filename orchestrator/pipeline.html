@@ -451,6 +451,98 @@ html, body {
   font-family: var(--mono);
 }
 
+/* Edge Badges & Particles */
+.edge-badge {
+  font-size: 10px;
+  font-family: var(--mono);
+  fill: var(--text2);
+  pointer-events: none;
+}
+.edge-badge-rect {
+  fill: var(--surface2);
+  stroke: var(--border2);
+  stroke-width: 1;
+  rx: 4;
+  cursor: pointer;
+  pointer-events: all;
+  transition: stroke-color 0.15s, fill 0.15s;
+}
+.edge-badge-rect:hover {
+  stroke: var(--accent);
+  fill: var(--surface3);
+}
+.edge-particle {
+  fill: var(--accent);
+  filter: drop-shadow(0 0 6px var(--accent));
+  pointer-events: none;
+}
+@keyframes particleTravel {
+  0% { offset-distance: 0%; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+
+/* Minimap */
+#minimap {
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  width: 176px;
+  height: 116px;
+  background: rgba(14, 14, 22, 0.9);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  z-index: 40;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s;
+}
+#minimap:hover {
+  border-color: var(--border3);
+}
+#minimap-svg {
+  width: 100%;
+  height: 100%;
+}
+#minimap-viewport {
+  position: absolute;
+  border: 1.5px solid var(--accent);
+  background: rgba(91, 127, 255, 0.16);
+  border-radius: 2px;
+  pointer-events: none;
+  box-shadow: 0 0 8px rgba(91, 127, 255, 0.3);
+}
+
+/* Edge Inspector */
+#config-edge-content { display: none; }
+#config-edge-content.visible { display: block; }
+.condition-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.condition-chips .chip {
+  font-size: 11px;
+  padding: 3px 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  cursor: pointer;
+  color: var(--text2);
+  transition: all 0.12s;
+  user-select: none;
+}
+.condition-chips .chip:hover {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
 /* ============================================================
    CONFIG PANEL
    ============================================================ */
@@ -621,6 +713,81 @@ html, body {
 
 #connection-dot.disconnected { background: var(--red); }
 
+#task-allocation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text2);
+}
+
+.alloc-label {
+  color: var(--text3);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+#alloc-count {
+  color: var(--accent);
+  font-weight: 600;
+  min-width: 12px;
+  text-align: center;
+}
+
+#worker-dots {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.worker-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text3);
+  transition: background 0.3s, box-shadow 0.3s;
+  cursor: default;
+  position: relative;
+}
+
+.worker-dot.online {
+  background: var(--green);
+  box-shadow: 0 0 6px rgba(76, 175, 80, 0.5);
+}
+
+.worker-dot.busy {
+  background: var(--orange);
+  box-shadow: 0 0 6px rgba(255, 152, 0, 0.5);
+  animation: statusPulse 1.5s ease-in-out infinite;
+}
+
+.worker-dot.offline {
+  background: var(--text3);
+  opacity: 0.5;
+}
+
+.worker-dot .tooltip {
+  display: none;
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 10px;
+  white-space: nowrap;
+  color: var(--text);
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.worker-dot:hover .tooltip {
+  display: block;
+}
+
 #exec-status {
   color: var(--text);
   font-weight: 500;
@@ -644,6 +811,81 @@ html, body {
 @keyframes dirtyBlink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
+}
+
+/* ============================================================
+   PIPELINE ANIMATIONS — SSE-DRIVEN
+   ============================================================ */
+.node-pulse {
+  animation: nodePulse 0.8s ease-out;
+}
+
+@keyframes nodePulse {
+  0% { filter: brightness(1); }
+  50% { filter: brightness(1.3); box-shadow: 0 0 12px rgba(102, 126, 234, 0.4); }
+  100% { filter: brightness(1); }
+}
+
+.node-status.claimed {
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(102, 126, 234, 0.5);
+}
+
+.node-status.busy {
+  background: var(--orange);
+  box-shadow: 0 0 6px rgba(255, 152, 0, 0.5);
+  animation: statusPulse 1.2s ease-in-out infinite;
+}
+
+.node-status.completed {
+  background: var(--green);
+  box-shadow: 0 0 6px rgba(76, 175, 80, 0.5);
+}
+
+.node-status.retry {
+  background: #f44336;
+  box-shadow: 0 0 6px rgba(244, 67, 54, 0.5);
+}
+
+.node-status.escalate {
+  background: #e91e63;
+  box-shadow: 0 0 6px rgba(233, 30, 99, 0.5);
+}
+
+.node-status.planned {
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(102, 126, 234, 0.5);
+}
+
+.edge-pulse {
+  stroke-width: 4 !important;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+.edge-claimed {
+  stroke: var(--accent) !important;
+}
+
+.edge-completed {
+  stroke: var(--green) !important;
+}
+
+.edge-retry {
+  stroke: #f44336 !important;
+}
+
+.edge-escalate {
+  stroke: #e91e63 !important;
+}
+
+@keyframes edgeFlow {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -12; }
+}
+
+.edge-pulse {
+  stroke-dasharray: 8 4;
+  animation: edgeFlow 0.6s linear;
 }
 
 /* ============================================================
@@ -896,6 +1138,7 @@ html, body {
     <div class="sep"></div>
     <button class="btn" onclick="newPipeline()" title="New empty pipeline">New</button>
     <button class="btn" onclick="loadDefault()" title="Load default pipeline">Default</button>
+    <button class="btn" onclick="autoLayout()" title="Automatically arrange graph in clean hierarchical layers">Auto-Layout</button>
     <div class="sep"></div>
     <button class="btn" onclick="savePipeline()" title="Save pipeline (Ctrl+S)" id="btn-save">
       <span>Save</span>
@@ -940,13 +1183,18 @@ html, body {
         <path id="temp-edge" d="" />
       </svg>
     </div>
+    <!-- MINIMAP NAVIGATOR -->
+    <div id="minimap" title="Minimap (Click to pan)">
+      <svg id="minimap-svg"></svg>
+      <div id="minimap-viewport"></div>
+    </div>
   </div>
 
   <!-- CONFIG PANEL -->
   <div id="config-panel">
     <div id="config-empty">
       <div class="icon">⬡</div>
-      <span>Select a node to<br>edit its configuration</span>
+      <span>Select a node or edge to<br>edit its configuration</span>
     </div>
     <div id="config-content">
       <div class="config-header">
@@ -981,6 +1229,51 @@ html, body {
         <button class="btn" onclick="duplicateNode()" title="Duplicate node">Duplicate</button>
       </div>
     </div>
+    <!-- EDGE CONFIG CONTENT -->
+    <div id="config-edge-content">
+      <div class="config-header">
+        <div class="config-color-dot" style="background:var(--accent)"></div>
+        <span>Edge Connection</span>
+      </div>
+      <div class="config-section">
+        <div class="config-section-title">Endpoints</div>
+        <div class="config-field">
+          <label>Source Node</label>
+          <input id="cfg-edge-source" type="text" readonly disabled />
+        </div>
+        <div class="config-field">
+          <label>Source Port</label>
+          <input id="cfg-edge-source-port" type="text" readonly disabled />
+        </div>
+        <div class="config-field">
+          <label>Target Node</label>
+          <input id="cfg-edge-target" type="text" readonly disabled />
+        </div>
+        <div class="config-field">
+          <label>Target Port</label>
+          <input id="cfg-edge-target-port" type="text" readonly disabled />
+        </div>
+      </div>
+      <div class="config-section">
+        <div class="config-section-title">Routing Condition</div>
+        <div class="config-field">
+          <label>Condition Expression</label>
+          <input id="cfg-edge-condition" type="text" spellcheck="false" placeholder="e.g. pass, retry, all_pass" />
+          <div class="hint">Port branch or boolean condition</div>
+        </div>
+        <div class="condition-chips" id="cfg-edge-chips">
+          <span class="chip" data-cond="pass">pass</span>
+          <span class="chip" data-cond="fail">fail</span>
+          <span class="chip" data-cond="retry">retry</span>
+          <span class="chip" data-cond="escalate">escalate</span>
+          <span class="chip" data-cond="ready">ready</span>
+          <span class="chip" data-cond="blocked">blocked</span>
+        </div>
+      </div>
+      <div class="config-actions">
+        <button class="btn danger" onclick="deleteSelected()" title="Delete this edge (Del)">Delete Edge</button>
+      </div>
+    </div>
   </div>
 
   <!-- BOTTOM BAR -->
@@ -995,6 +1288,14 @@ html, body {
     <div class="sep"></div>
     <span id="dirty-indicator">● Unsaved</span>
     <div class="spacer"></div>
+    <div id="task-allocation">
+      <span class="alloc-label">Tasks:</span>
+      <span id="alloc-count">0</span>
+      <div class="sep"></div>
+      <span class="alloc-label">Workers:</span>
+      <span id="worker-dots"></span>
+    </div>
+    <div class="sep"></div>
     <span id="exec-status">Idle</span>
     <span id="exec-node"></span>
   </div>
@@ -1163,6 +1464,10 @@ const $tempEdge = $('#temp-edge');
 const $sidebar = $('#sidebar');
 const $configEmpty = $('#config-empty');
 const $configContent = $('#config-content');
+const $configEdgeContent = $('#config-edge-content');
+const $minimap = $('#minimap');
+const $minimapSvg = $('#minimap-svg');
+const $minimapViewport = $('#minimap-viewport');
 const $nodeCount = $('#node-count');
 const $edgeCount = $('#edge-count');
 const $dirtyInd = $('#dirty-indicator');
@@ -1201,6 +1506,8 @@ async function init() {
   await loadDefault();
   bindEvents();
   updateCounts();
+  startSSE();
+  startWorkerPoll();
 }
 
 async function fetchCategories() {
@@ -1298,6 +1605,7 @@ function canvasToScreen(cx, cy) {
 function updateTransform() {
   $canvas.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
   $zoomDisp.textContent = Math.round(state.zoom * 100) + '%';
+  if (typeof updateMinimap === 'function') updateMinimap();
 }
 
 // =========================================================================
@@ -1331,6 +1639,15 @@ function renderNode(node) {
   body.className = 'node-body';
   body.textContent = node.type;
   el.appendChild(body);
+
+  // Worker allocation badge (for opencode.worker nodes)
+  if (node.type === 'opencode.worker' && node._taskSlot) {
+    const badge = document.createElement('div');
+    badge.className = 'worker-badge';
+    badge.textContent = `⚙ worker-${node._taskSlot}`;
+    badge.style.cssText = 'font-size:9px;color:#9C27B0;background:rgba(156,39,176,0.15);padding:2px 6px;border-radius:3px;margin-top:4px;';
+    body.appendChild(badge);
+  }
 
   // ID
   const idEl = document.createElement('div');
@@ -1421,6 +1738,7 @@ function escHtml(s) {
 // =========================================================================
 function renderEdges() {
   $edgesSvg.querySelectorAll('path.edge').forEach(p => p.remove());
+  $edgesSvg.querySelectorAll('g.edge-badge-group').forEach(p => p.remove());
 
   state.edges.forEach((edge, idx) => {
     const src = getNodeById(edge.source);
@@ -1454,6 +1772,43 @@ function renderEdges() {
     });
 
     $edgesSvg.appendChild(path);
+
+    // Midpoint label badge if condition or distinct port
+    const labelText = edge.condition || (edge.source_port && edge.source_port !== 'output' ? edge.source_port : '');
+    if (labelText) {
+      const mx = (srcPos.x + tgtPos.x) / 2;
+      const my = (srcPos.y + tgtPos.y) / 2;
+
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      g.classList.add('edge-badge-group');
+      g.dataset.edgeIdx = idx;
+
+      const padX = 6;
+      const textLen = Math.max(30, labelText.length * 6.5 + padX * 2);
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', mx - textLen / 2);
+      rect.setAttribute('y', my - 9);
+      rect.setAttribute('width', textLen);
+      rect.setAttribute('height', 18);
+      rect.classList.add('edge-badge-rect');
+
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', mx);
+      text.setAttribute('y', my + 3.5);
+      text.setAttribute('text-anchor', 'middle');
+      text.classList.add('edge-badge');
+      text.textContent = labelText;
+
+      g.appendChild(rect);
+      g.appendChild(text);
+
+      g.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectEdge(idx);
+      });
+
+      $edgesSvg.appendChild(g);
+    }
   });
 }
 
@@ -1488,6 +1843,7 @@ function render() {
   renderAllNodes();
   renderEdges();
   updateCounts();
+  if (typeof updateMinimap === 'function') updateMinimap();
 }
 
 function updateCounts() {
@@ -1713,7 +2069,6 @@ function selectEdge(idx) {
   state.selectedNodeId = null;
 
   $canvas.querySelectorAll('.node.selected').forEach(el => el.classList.remove('selected'));
-  hideConfig();
 
   $edgesSvg.querySelectorAll('path.edge').forEach(p => {
     p.classList.remove('selected');
@@ -1724,6 +2079,23 @@ function selectEdge(idx) {
     path.classList.add('selected');
     path.setAttribute('stroke-width', '4');
   }
+
+  showEdgeConfig(idx);
+}
+
+function showEdgeConfig(idx) {
+  const edge = state.edges[idx];
+  if (!edge) return;
+
+  $configEmpty.style.display = 'none';
+  $configContent.classList.remove('visible');
+  if ($configEdgeContent) $configEdgeContent.classList.add('visible');
+
+  $('#cfg-edge-source').value = edge.source;
+  $('#cfg-edge-source-port').value = edge.source_port || 'output';
+  $('#cfg-edge-target').value = edge.target;
+  $('#cfg-edge-target-port').value = edge.target_port || 'input';
+  $('#cfg-edge-condition').value = edge.condition || '';
 }
 
 function deselectAll() {
@@ -1823,7 +2195,32 @@ function showConfig(nodeId) {
 function hideConfig() {
   $configEmpty.style.display = '';
   $configContent.classList.remove('visible');
+  if ($configEdgeContent) $configEdgeContent.classList.remove('visible');
 }
+
+// Edge config listeners
+$('#cfg-edge-condition').addEventListener('input', function () {
+  if (state.selectedEdgeIdx === null) return;
+  const edge = state.edges[state.selectedEdgeIdx];
+  if (!edge) return;
+  edge.condition = this.value.trim() || null;
+  markDirty();
+  renderEdges();
+  if (typeof updateMinimap === 'function') updateMinimap();
+});
+
+$('#cfg-edge-chips').addEventListener('click', function (e) {
+  const chip = e.target.closest('.chip');
+  if (!chip || state.selectedEdgeIdx === null) return;
+  const cond = chip.dataset.cond;
+  const edge = state.edges[state.selectedEdgeIdx];
+  if (!edge) return;
+  edge.condition = cond;
+  $('#cfg-edge-condition').value = cond;
+  markDirty();
+  renderEdges();
+  if (typeof updateMinimap === 'function') updateMinimap();
+});
 
 function updateConfigPosition() {
   if (!state.selectedNodeId) return;
@@ -1965,6 +2362,195 @@ function zoomFit() {
 
   updateTransform();
 }
+
+// =========================================================================
+// AUTO-LAYOUT (HIERARCHICAL DAG)
+// =========================================================================
+function autoLayout() {
+  if (state.nodes.length === 0) return;
+  pushUndo();
+
+  const inDegree = {};
+  const adj = {};
+  state.nodes.forEach(n => {
+    inDegree[n.id] = 0;
+    adj[n.id] = [];
+  });
+
+  state.edges.forEach(e => {
+    if (adj[e.source] && inDegree[e.target] !== undefined) {
+      adj[e.source].push(e.target);
+      inDegree[e.target]++;
+    }
+  });
+
+  const layer = {};
+  const queue = [];
+  state.nodes.forEach(n => {
+    if (inDegree[n.id] === 0) {
+      layer[n.id] = 0;
+      queue.push(n.id);
+    }
+  });
+
+  if (queue.length === 0 && state.nodes.length > 0) {
+    layer[state.nodes[0].id] = 0;
+    queue.push(state.nodes[0].id);
+  }
+
+  const visited = new Set();
+  while (queue.length > 0) {
+    const curr = queue.shift();
+    visited.add(curr);
+    const currLayer = layer[curr] || 0;
+
+    for (const next of (adj[curr] || [])) {
+      const nextLayer = Math.max(layer[next] || 0, currLayer + 1);
+      layer[next] = nextLayer;
+      if (!visited.has(next) && !queue.includes(next)) {
+        queue.push(next);
+      }
+    }
+  }
+
+  state.nodes.forEach(n => {
+    if (layer[n.id] === undefined) layer[n.id] = 0;
+  });
+
+  const layers = {};
+  state.nodes.forEach(n => {
+    const l = layer[n.id];
+    if (!layers[l]) layers[l] = [];
+    layers[l].push(n);
+  });
+
+  const layerKeys = Object.keys(layers).map(Number).sort((a, b) => a - b);
+  const HORIZ_GAP = 240;
+  const VERT_GAP = 120;
+  const START_X = 60;
+  const CENTER_Y = 280;
+
+  layerKeys.forEach(l => {
+    const nodesInLayer = layers[l];
+    const totalHeight = (nodesInLayer.length - 1) * VERT_GAP;
+    const startY = CENTER_Y - totalHeight / 2;
+
+    nodesInLayer.forEach((n, idx) => {
+      n.position.x = START_X + l * HORIZ_GAP;
+      n.position.y = Math.max(60, Math.round(startY + idx * VERT_GAP));
+    });
+  });
+
+  markDirty();
+  render();
+  zoomFit();
+  toast('Pipeline auto-arranged in clean layout', 'info');
+}
+
+// =========================================================================
+// MINIMAP
+// =========================================================================
+function updateMinimap() {
+  if (!$minimapSvg || state.nodes.length === 0) return;
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  state.nodes.forEach(n => {
+    minX = Math.min(minX, n.position.x);
+    minY = Math.min(minY, n.position.y);
+    maxX = Math.max(maxX, n.position.x + 180);
+    maxY = Math.max(maxY, n.position.y + 60);
+  });
+
+  const viewW = $container.clientWidth / state.zoom;
+  const viewH = $container.clientHeight / state.zoom;
+  const viewX = -state.panX / state.zoom;
+  const viewY = -state.panY / state.zoom;
+
+  const totalMinX = Math.min(minX, viewX) - 100;
+  const totalMinY = Math.min(minY, viewY) - 100;
+  const totalMaxX = Math.max(maxX, viewX + viewW) + 100;
+  const totalMaxY = Math.max(maxY, viewY + viewH) + 100;
+
+  const worldW = Math.max(100, totalMaxX - totalMinX);
+  const worldH = Math.max(100, totalMaxY - totalMinY);
+  const mmW = 176;
+  const mmH = 116;
+  const scale = Math.min(mmW / worldW, mmH / worldH);
+
+  const toMmx = (x) => (x - totalMinX) * scale;
+  const toMmy = (y) => (y - totalMinY) * scale;
+
+  let svgContent = '';
+  state.edges.forEach(e => {
+    const src = getNodeById(e.source);
+    const tgt = getNodeById(e.target);
+    if (src && tgt) {
+      const x1 = toMmx(src.position.x + 90);
+      const y1 = toMmy(src.position.y + 30);
+      const x2 = toMmx(tgt.position.x + 90);
+      const y2 = toMmy(tgt.position.y + 30);
+      svgContent += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#2a2a3e" stroke-width="1" />`;
+    }
+  });
+
+  state.nodes.forEach(n => {
+    const nx = toMmx(n.position.x);
+    const ny = toMmy(n.position.y);
+    const nw = Math.max(4, 180 * scale);
+    const nh = Math.max(3, 56 * scale);
+    const color = getColor(n.type);
+    svgContent += `<rect x="${nx}" y="${ny}" width="${nw}" height="${nh}" rx="1" fill="${color}" opacity="0.85" />`;
+  });
+
+  $minimapSvg.innerHTML = svgContent;
+
+  const vx = toMmx(viewX);
+  const vy = toMmy(viewY);
+  const vw = Math.max(8, viewW * scale);
+  const vh = Math.max(6, viewH * scale);
+
+  $minimapViewport.style.left = `${Math.max(0, vx)}px`;
+  $minimapViewport.style.top = `${Math.max(0, vy)}px`;
+  $minimapViewport.style.width = `${Math.min(mmW, vw)}px`;
+  $minimapViewport.style.height = `${Math.min(mmH, vh)}px`;
+}
+
+$minimap.addEventListener('click', (e) => {
+  if (state.nodes.length === 0) return;
+  const rect = $minimap.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const clickY = e.clientY - rect.top;
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  state.nodes.forEach(n => {
+    minX = Math.min(minX, n.position.x);
+    minY = Math.min(minY, n.position.y);
+    maxX = Math.max(maxX, n.position.x + 180);
+    maxY = Math.max(maxY, n.position.y + 60);
+  });
+
+  const viewW = $container.clientWidth / state.zoom;
+  const viewH = $container.clientHeight / state.zoom;
+  const viewX = -state.panX / state.zoom;
+  const viewY = -state.panY / state.zoom;
+
+  const totalMinX = Math.min(minX, viewX) - 100;
+  const totalMinY = Math.min(minY, viewY) - 100;
+  const totalMaxX = Math.max(maxX, viewX + viewW) + 100;
+  const totalMaxY = Math.max(maxY, viewY + viewH) + 100;
+
+  const worldW = Math.max(100, totalMaxX - totalMinX);
+  const worldH = Math.max(100, totalMaxY - totalMinY);
+  const scale = Math.min(176 / worldW, 116 / worldH);
+
+  const targetWorldX = totalMinX + clickX / scale;
+  const targetWorldY = totalMinY + clickY / scale;
+
+  state.panX = $container.clientWidth / 2 - targetWorldX * state.zoom;
+  state.panY = $container.clientHeight / 2 - targetWorldY * state.zoom;
+
+  updateTransform();
+});
 
 $container.addEventListener('wheel', (e) => {
   e.preventDefault();
@@ -2555,6 +3141,256 @@ async function checkConnection() {
 
 setInterval(checkConnection, 15000);
 checkConnection();
+
+// =========================================================================
+// SSE — REAL-TIME TASK ALLOCATION & WORKER STATUS
+// =========================================================================
+let sseSource = null;
+const workerState = {};  // slot -> {online, task, model, phase, last_seen, cls}
+
+function startSSE() {
+  if (sseSource) sseSource.close();
+  sseSource = new EventSource('/events');
+  
+  // Handle named events from orchestrator
+  const eventTypes = ['heartbeat', 'task_claimed', 'task_completed', 'task_retried', 'task_escalated', 'task_planned'];
+  eventTypes.forEach(type => {
+    sseSource.addEventListener(type, (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        handlePipelineEvent(type, data);
+      } catch {}
+    });
+  });
+  
+  // Handle generic messages (snapshot/state updates)
+  sseSource.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      handleSSE(msg);
+    } catch {}
+  };
+  
+  sseSource.onerror = () => {
+    // Reconnect handled by browser
+  };
+}
+
+function handlePipelineEvent(type, data) {
+  const slot = data.slot;
+  const taskId = data.task_id;
+  
+  switch (type) {
+    case 'heartbeat':
+      updateExecutorFromHeartbeat(data);
+      break;
+    case 'task_claimed':
+      animateNode('router', 'claimed');
+      animateEdge('router', `executor_${slot}`, 'claimed');
+      updateExecutorStatus(slot, 'busy', taskId);
+      break;
+    case 'task_completed':
+      animateNode(`executor_${slot}`, 'completed');
+      animateEdge(`executor_${slot}`, 'tests', 'completed');
+      updateExecutorStatus(slot, 'idle');
+      break;
+    case 'task_retried':
+      animateNode('triage', 'retry');
+      animateEdge('triage', 'retry_backoff', 'retry');
+      updateExecutorStatus(slot, 'idle');
+      break;
+    case 'task_escalated':
+      animateNode('triage', 'escalate');
+      animateEdge('triage', 'hermes', 'escalate');
+      updateExecutorStatus(slot, 'idle');
+      break;
+    case 'task_planned':
+      animateNode('classify', 'planned');
+      animateEdge('input', 'classify', 'claimed');
+      break;
+  }
+}
+
+function updateExecutorFromHeartbeat(data) {
+  const slot = data.slot;
+  if (!slot) return;
+  
+  const isBusy = data.phase && data.phase !== 'idle';
+  workerState[slot] = {
+    ...workerState[slot],
+    task: data.task,
+    phase: data.phase,
+    model: data.model,
+    online: true,
+    cls: isBusy ? 'busy' : 'online',
+  };
+  
+  updateExecutorStatus(slot, isBusy ? 'busy' : 'online', data.task);
+}
+
+function updateExecutorStatus(slot, status, taskId) {
+  const nodeId = `executor_${slot}`;
+  const node = state.nodes.find(n => n.id === nodeId);
+  if (node) {
+    node._status = status;
+    node._taskId = taskId;
+  }
+  
+  // Update canvas node appearance using the correct ID format
+  const statusEl = document.getElementById(`status-${nodeId}`);
+  if (statusEl) {
+    statusEl.className = `node-status ${status}`;
+  }
+  
+  // Also update the node element itself
+  const nodeEl = document.getElementById(`node-${nodeId}`);
+  if (nodeEl) {
+    nodeEl.className = `node ${status === 'busy' ? 'running' : ''}`;
+  }
+}
+
+function animateNode(nodeId, status) {
+  const nodeEl = document.getElementById(`node-${nodeId}`);
+  if (!nodeEl) return;
+  
+  nodeEl.classList.add('node-pulse');
+  const statusEl = document.getElementById(`status-${nodeId}`);
+  if (statusEl) {
+    statusEl.className = `node-status ${status}`;
+    statusEl.style.animation = 'statusPulse 0.8s ease-out';
+    setTimeout(() => { statusEl.style.animation = ''; }, 800);
+  }
+  
+  setTimeout(() => { nodeEl.classList.remove('node-pulse'); }, 1200);
+}
+
+function animateEdge(fromId, toId, status) {
+  // Find the edge in state.edges
+  const edgeIdx = state.edges.findIndex(e => e.source === fromId && e.target === toId);
+  if (edgeIdx === -1) return;
+  
+  // Find the corresponding SVG path
+  const pathEl = document.querySelector(`path[data-edge-idx="${edgeIdx}"]`);
+  if (pathEl) {
+    pathEl.classList.add('edge-pulse', `edge-${status}`);
+    const origWidth = pathEl.getAttribute('stroke-width');
+    pathEl.setAttribute('stroke-width', '4');
+
+    // Spawn traveling particle along wire
+    try {
+      const particle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      particle.setAttribute('r', '4');
+      const pColor = status === 'completed' ? 'var(--green)' : (status === 'retry' ? 'var(--orange)' : (status === 'escalate' ? 'var(--red)' : 'var(--accent)'));
+      particle.setAttribute('fill', pColor);
+      particle.classList.add('edge-particle');
+      const d = pathEl.getAttribute('d');
+      particle.style.offsetPath = `path("${d}")`;
+      particle.style.animation = 'particleTravel 1.1s cubic-bezier(0.4, 0, 0.2, 1) forwards';
+      $edgesSvg.appendChild(particle);
+      setTimeout(() => particle.remove(), 1200);
+    } catch (_) {}
+
+    setTimeout(() => {
+      pathEl.classList.remove('edge-pulse', `edge-${status}`);
+      pathEl.setAttribute('stroke-width', origWidth || '2.5');
+    }, 1500);
+  }
+}
+
+function handleSSE(msg) {
+  if (msg.type === 'snapshot' || msg.tasks) {
+    updateTaskAllocation(msg.tasks || []);
+    updateWorkerSlots(msg.slots || {});
+  }
+  if (msg.type === 'event') {
+    // Could highlight pipeline nodes on events
+  }
+}
+
+function updateTaskAllocation(tasks) {
+  const active = tasks.filter(t => t.status === 'in_progress' || t.status === 'verifying');
+  const $allocCount = document.getElementById('alloc-count');
+  if ($allocCount) $allocCount.textContent = active.length;
+
+  // Update pipeline node statuses if we have execution state
+  if (state.executionId && state.nodes.length > 0) {
+    for (const task of active) {
+      const node = state.nodes.find(n => n.type === 'opencode.worker');
+      if (node) {
+        node._taskSlot = task.slot;
+        node._taskStatus = task.status;
+      }
+    }
+  }
+}
+
+function updateWorkerSlots(slots) {
+  const $dots = document.getElementById('worker-dots');
+  if (!$dots) return;
+
+  const slotIds = ['01', '02', '03'];
+  let html = '';
+
+  for (const slot of slotIds) {
+    const info = slots[slot];
+    let cls = 'offline';
+    let tooltip = `executor-${slot}: offline`;
+
+    if (info && info.online) {
+      const ageS = info.age_s || 0;
+      if (info.task && info.phase !== 'idle') {
+        cls = 'busy';
+        tooltip = `executor-${slot}: ${info.task} (${info.phase || 'working'})`;
+      } else {
+        cls = 'online';
+        tooltip = `executor-${slot}: online (model: ${info.model || '?'})`;
+      }
+    } else if (info) {
+      cls = 'offline';
+      tooltip = `executor-${slot}: offline (${ageS}s ago)`;
+    }
+
+    workerState[slot] = { ...info, cls };
+    html += `<div class="worker-dot ${cls}" title="${tooltip}"><span class="tooltip">${tooltip}</span></div>`;
+    
+    // Update executor node on canvas
+    updateExecutorStatus(slot, cls === 'busy' ? 'busy' : cls === 'online' ? 'online' : 'offline', info?.task);
+  }
+
+  $dots.innerHTML = html;
+}
+
+// Poll worker slots every 5 seconds (SSE may not always fire)
+async function pollWorkerSlots() {
+  try {
+    const res = await fetch('/api/slots');
+    if (res.ok) {
+      const data = await res.json();
+      updateWorkerSlots(data.slots || data);
+    }
+  } catch {}
+}
+
+// Poll tasks for allocation info
+async function pollTaskAllocation() {
+  try {
+    const res = await fetch('/api/state');
+    if (res.ok) {
+      const data = await res.json();
+      const tasks = data.tasks || data;
+      if (Array.isArray(tasks)) updateTaskAllocation(tasks);
+    }
+  } catch {}
+}
+
+function startWorkerPoll() {
+  pollWorkerSlots();
+  pollTaskAllocation();
+  setInterval(() => {
+    pollWorkerSlots();
+    pollTaskAllocation();
+  }, 5000);
+}
 
 // =========================================================================
 // BOOT

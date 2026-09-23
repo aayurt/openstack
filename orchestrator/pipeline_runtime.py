@@ -200,13 +200,24 @@ def _handle_readiness(ctx: NodeContext) -> dict[str, Any]:
 
 
 def _handle_worker_router(ctx: NodeContext) -> dict[str, Any]:
-    """Select an eligible worker."""
-    # For now, return a placeholder — real routing uses orchestrator logic
-    slot = ctx.node.config.get("preferred_slot", "auto")
+    """Select an eligible worker and return the output port."""
+    # Select a worker based on complexity or least-busy
+    complexity = ctx.upstream_result("classify").get("complexity", "medium")
+    
+    # Simple round-robin or complexity-based routing
+    # For now, use worker_01 for simple tasks, worker_02 for medium, worker_03 for complex
+    if complexity == "simple":
+        port = "worker_01"
+    elif complexity == "complex":
+        port = "worker_03"
+    else:
+        port = "worker_02"
+    
     return {
-        "worker_id": slot,
+        "worker_id": port.replace("worker_", ""),
         "routing": "least-busy",
-        "complexity": ctx.upstream_result("classify").get("complexity", "medium"),
+        "complexity": complexity,
+        "output_port": port,
     }
 
 
@@ -393,6 +404,8 @@ class PipelineRuntime:
             return "ready" if result.get("ready", False) else "blocked"
         if ntype == NodeType.CONDITION.value:
             return "true" if result.get("condition", False) else "false"
+        if ntype == NodeType.WORKER_ROUTER.value:
+            return result.get("output_port", "worker_01")
         return "output"
 
     def execute_node(self, node_id: str) -> dict[str, Any]:

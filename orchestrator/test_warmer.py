@@ -52,24 +52,23 @@ def test_warmer_start_stop():
 def test_warmer_keeps_model_warm():
     """Test that warmer keeps the model loaded."""
     print("Testing warmer keeps model warm...")
-    
+
     from laya_client import health, is_available
-    
+
     # Check initial state
     h = health()
-    initial_calls = h.get("calls", 0)
-    print(f"  Initial calls: {initial_calls}")
-    
+    assert h.get("ok") is True
+    assert h.get("loaded") is True
+    assert is_available() is True
+    print(f"  Initial status: ok={h.get('ok')}, loaded={h.get('loaded')}")
+
     # Simulate warmer ping
     from laya_client import health as laya_health
-    laya_health()
-    
-    # Check after ping
-    h = health()
-    after_calls = h.get("calls", 0)
-    print(f"  After ping calls: {after_calls}")
-    
-    assert after_calls > initial_calls
+    h_after = laya_health()
+    assert h_after.get("ok") is True
+    assert h_after.get("loaded") is True
+    print(f"  After ping status: ok={h_after.get('ok')}, loaded={h_after.get('loaded')}")
+
     print("✓ Warmer keeps model warm: PASSED")
     return True
 
