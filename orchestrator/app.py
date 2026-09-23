@@ -631,6 +631,8 @@ def merge_and_clean(project: str, tid: str) -> dict:
     r = git(repo, "merge", "--no-ff", branch, "-m", f"task {tid}")
     merge_rc = r.returncode
     merge_err = r.stderr.strip()
+    if merge_rc != 0:
+        git(repo, "merge", "--abort")
     # Restore stashed changes if we stashed.
     if stashed:
         git(repo, "stash", "pop")
@@ -697,6 +699,7 @@ def plan_done(req: PlanReq):
                   (req.task_id,))
     pipeline_log("PLAN", req.task_id, f"ready (slot={req.slot}) {req.plan_summary[:80]}")
     audit(req.slot, req.task_id, "plan", req.plan_summary[:200])
+    sse_emit("task_planned", {"task_id": req.task_id, "slot": req.slot})
     return {"ok": True, "next": "ready"}
 
 
@@ -722,6 +725,15 @@ async def sse_broadcast(event: str, data: dict) -> None:
             q.put_nowait(msg)
         except Exception:
             sse_clients.discard(q)
+
+
+def sse_emit(event: str, data: dict) -> None:
+    """Fire-and-forget SSE broadcast from sync code."""
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(sse_broadcast(event, data))
+    except RuntimeError:
+        pass
 
 
 async def sse_stream(request: Request):
@@ -795,6 +807,7 @@ def heartbeat(req: BeatReq):
         "task": req.task,
         "phase": req.phase,
     }
+    sse_emit("heartbeat", {"slot": req.slot, "task": req.task, "phase": req.phase, "model": req.model, "online": True})
     return {"ok": True}
 
 
@@ -910,8 +923,10 @@ def claim(req: ClaimReq):
             write_task_status(tid, "in_progress")
             pipeline_log("EMPLOY", tid, f"slot={req.slot}")
             audit(req.slot, tid, "claim", f"worktree={wt} model={req.model}")
+            sse_emit("task_claimed", {"task_id": tid, "slot": req.slot, "stage": stage, "model": req.model})
         else:
             audit(req.slot, tid, "claim", "planning (new)")
+            sse_emit("task_claimed", {"task_id": tid, "slot": req.slot, "stage": stage, "model": req.model})
         return {
             "task": {
                 "id": tid,
@@ -975,6 +990,7 @@ def status_report(req: StatusReport):
             c.execute("UPDATE tasks SET status=?, slot=NULL, claimed_at=NULL, verification=? WHERE id=?",
                       ("done", json.dumps(req.verification), req.task_id))
         out["next"] = "done"
+        sse_emit("task_completed", {"task_id": req.task_id, "slot": req.slot, "outcome": "done", "verification": req.verification})
     elif req.outcome == "review":
         # Laya triage: classify the failure and decide retry/escalate
         laya_triage = {}
@@ -1040,6 +1056,7 @@ def status_report(req: StatusReport):
             notify_file.write_text(json.dumps(escalation, indent=2))
             out["next"] = "blocked"
             out["retry_count"] = retry
+            sse_emit("task_escalated", {"task_id": req.task_id, "slot": req.slot, "retry_count": retry, "reason": laya_triage.get("retry_reason", "unknown")})
             return out
 
         # Retry with exponential backoff (or old-style simple retry if Laya disabled)
@@ -1085,6 +1102,7 @@ def status_report(req: StatusReport):
         audit(req.slot, req.task_id, "review", f"round {retry} ({laya_triage.get('verdict', 'retry')})")
         out["next"] = "ready" if status == "ready" else "blocked"
         out["retry_count"] = retry
+        sse_emit("task_retried", {"task_id": req.task_id, "slot": req.slot, "retry_count": retry, "next": out["next"]})
     elif req.outcome == "blocked":
         write_task_status(req.task_id, "blocked", {"block_reason": req.block_reason})
         with db_conn() as c:
