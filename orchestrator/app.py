@@ -32,6 +32,8 @@ from pydantic import BaseModel
 import uvicorn
 
 from laya_client import TaskState, classify_task, triage_result, is_available as laya_available
+from pipeline_routes import router as pipeline_router
+from pipeline_runtime import init_pipeline_tables
 
 # ── paths / config ─────────────────────────────────────────────────────────
 WORKSPACE = Path(os.environ.get("ORCH_WS", "/workspace"))
@@ -48,6 +50,7 @@ STATUSES = {"new", "ready", "in_progress", "verifying", "review", "done", "block
 EVENT_PREFIXES = ("SELECT", "SESSION", "ASSIGN", "VERIFY", "REVIEW", "NOTIFY", "MERGE", "WATCH")
 
 app = FastAPI(title="openstack-orchestrator")
+app.include_router(pipeline_router)
 _lock = threading.Lock()
 _db_lock = threading.Lock()
 sse_clients: set[asyncio.Queue] = set()
@@ -136,6 +139,7 @@ def db_init() -> None:
             );
             """
         )
+        init_pipeline_tables(c)
 
 
 def _now() -> str:
@@ -1127,6 +1131,16 @@ def notifications_ack(files: list[str]):
 @app.get("/", response_class=HTMLResponse)
 def dashboard():
     return DASHBOARD_HTML
+
+
+@app.get("/pipeline", response_class=HTMLResponse)
+def pipeline_editor():
+    """Visual pipeline editor — serves the SPA."""
+    import pathlib
+    html_path = pathlib.Path(__file__).parent / "pipeline.html"
+    if html_path.exists():
+        return html_path.read_text()
+    return "<h1>Pipeline editor not found</h1><p>Place pipeline.html in the orchestrator directory.</p>"
 
 
 DASHBOARD_HTML = """<!doctype html><html lang="en"><head><meta charset="utf-8">

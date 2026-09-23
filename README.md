@@ -137,6 +137,8 @@ curl -X POST http://localhost:3080/api/config \
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/health` | Health check |
+| `GET` | `/` | Dashboard UI |
+| `GET` | `/pipeline` | Visual pipeline editor |
 | `GET` | `/api/config` | Get config (laya_enabled, laya_available) |
 | `POST` | `/api/config` | Update config |
 | `GET` | `/api/tasks` | List tasks |
@@ -144,6 +146,15 @@ curl -X POST http://localhost:3080/api/config \
 | `POST` | `/api/plan` | Submit plan |
 | `POST` | `/api/status` | Report status |
 | `GET` | `/api/notify` | Drain notifications |
+| `GET` | `/api/pipeline/categories` | Node types and ports for editor |
+| `GET` | `/api/pipeline/default` | Default pipeline definition |
+| `GET` | `/api/pipeline/list` | List saved pipelines |
+| `POST` | `/api/pipeline/save` | Save pipeline |
+| `GET` | `/api/pipeline/get/{id}` | Get pipeline by ID |
+| `POST` | `/api/pipeline/validate` | Validate pipeline |
+| `POST` | `/api/pipeline/run` | Execute pipeline |
+| `GET` | `/api/pipeline/executions` | List executions |
+| `GET` | `/api/pipeline/execution/{id}` | Get execution state |
 
 ## Configuration
 
@@ -230,14 +241,28 @@ Invalid output → log warning + fall back to defaults.
 
 ## Testing
 
-### Unit Tests (Mocked Laya)
+### Pipeline Unit Tests
+
+```bash
+cd orchestrator
+python -m unittest test_pipeline_unit -v
+```
+
+### Pipeline E2E Tests
+
+```bash
+cd orchestrator
+python -m unittest test_pipeline_e2e -v
+```
+
+### Laya Unit Tests (Mocked Laya)
 
 ```bash
 cd orchestrator
 python -m unittest test_laya_unit -v
 ```
 
-### E2E Tests (Real Laya)
+### Laya E2E Tests (Real Laya)
 
 ```bash
 cd orchestrator
@@ -260,15 +285,79 @@ python -m unittest discover -p "test_*.py" -v
 
 **Conclusion**: New flow adds ~176ms overhead per task, which is negligible for tasks lasting minutes/hours.
 
+## Visual Pipeline Editor
+
+The orchestrator includes an n8n-like visual pipeline editor at `http://localhost:3080/pipeline`.
+
+### Features
+
+- **Drag-and-drop** node creation from palette
+- **Canvas interactions**: zoom, pan, select, multi-select
+- **Node configuration**: click to edit config in side panel
+- **Edge drawing**: drag from port to port
+- **Execution visualization**: watch nodes light up as pipeline runs
+- **Save/load**: persist pipelines as versioned JSON
+- **Validation**: check pipeline before running
+- **Keyboard shortcuts**: Ctrl+S save, Delete remove, Escape deselect
+
+### Node Types
+
+| Category | Node | Description |
+|----------|------|-------------|
+| Input | Task Input | Creates or receives a task |
+| Laya | Laya Classify | Pre-execution classification |
+| Laya | Laya Triage | Post-test triage |
+| Execution | Readiness Check | Check dependency readiness |
+| Execution | Worker Router | Select eligible worker |
+| Execution | OpenCode Worker | Execute coding task |
+| Validation | Tests | Run lint/build/types |
+| Control | Retry | Exponential backoff retry |
+| Control | Condition | Route based on expression |
+| Control | Join | Wait for multiple branches |
+| Hermes | Hermes Re-plan | Escalate to Hermes |
+| Output | Done | Terminal node |
+
+### Pipeline JSON Format
+
+```json
+{
+  "pipeline": "coding-task",
+  "version": 1,
+  "nodes": [
+    {"id": "input", "type": "task.input", "config": {}, "position": {"x": 50, "y": 200}},
+    {"id": "classify", "type": "laya.classify", "config": {}, "position": {"x": 250, "y": 200}}
+  ],
+  "edges": [
+    {"source": "input", "target": "classify", "source_port": "output", "target_port": "input"}
+  ]
+}
+```
+
+### Open the Editor
+
+```bash
+# Start orchestrator
+python app.py
+
+# Open in browser
+open http://localhost:3080/pipeline
+```
+
 ## Scripts
 
 | Script | Purpose |
 |--------|---------|
 | `app.py` | Main orchestrator |
 | `laya_client.py` | Laya MCP client |
-| `test_laya_unit.py` | Unit tests (mocked Laya) |
-| `test_laya_e2e.py` | E2E tests (real Laya) |
-| `test_laya_integration.py` | Integration tests |
+| `pipeline_schema.py` | Pipeline JSON schema and types |
+| `pipeline_runtime.py` | Pipeline execution engine |
+| `pipeline_routes.py` | Pipeline API routes |
+| `pipeline.html` | Visual pipeline editor (2565 lines) |
+| `test_pipeline_unit.py` | Pipeline unit tests (44 tests) |
+| `test_pipeline_e2e.py` | Pipeline E2E tests (8 tests) |
+| `test_laya_unit.py` | Laya unit tests (mocked) |
+| `test_laya_e2e.py` | Laya E2E tests (real) |
+| `test_laya_integration.py` | Laya integration tests |
 | `benchmark_laya.py` | Speed benchmark |
 | `test_flows.py` | Old vs new flow comparison |
 
