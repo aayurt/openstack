@@ -139,6 +139,17 @@ def db_init() -> None:
             );
             """
         )
+        # Ensure newer columns exist on existing databases
+        cols = {row[1] for row in c.execute("PRAGMA table_info(tasks)").fetchall()}
+        for col, col_def in [
+            ("retry_delay_seconds", "INTEGER DEFAULT 0"),
+            ("complexity", "TEXT DEFAULT 'medium'"),
+            ("laya_pre", "TEXT DEFAULT '{}'"),
+            ("laya_triage", "TEXT DEFAULT '{}'"),
+            ("laya_pre_version", "TEXT DEFAULT ''"),
+        ]:
+            if col not in cols:
+                c.execute(f"ALTER TABLE tasks ADD COLUMN {col} {col_def}")
         init_pipeline_tables(c)
 
 
@@ -368,61 +379,63 @@ def sync_tasks() -> None:
                                 "UPDATE tasks SET slot=NULL, claimed_at=NULL WHERE id=?",
                                 (tid,),
                             )
-                # Laya classify
-                laya_pre = "{}"
-                laya_pre_version = ""
-                complexity = "medium"
-                
-                if LAYA_ENABLED and laya_available():
-                    if tid not in rows:
-                        # New task → classify
+                if LAYA_ENABLED and laya_available() and row["mtime"] != mtime:
+                    # Task changed → reclassify if significant
+                    old_laya = json.loads(row.get("laya_pre") or "{}")
+                    text = f.read_text() if f.exists() else ""
+                    old_fm_compare = {
+                        "files_scope": _as_list(old_laya.get("files_scope", [])),
+                        "depends_on": _as_list(old_laya.get("depends_on", [])),
+                        "plan": old_laya.get("plan_summary", ""),
+                        "acceptance": old_laya.get("acceptance_summary", ""),
+                    }
+                    new_fm_compare = {
+                        "files_scope": _as_list(fm.get("files_scope", [])),
+                        "depends_on": _as_list(fm.get("depends_on", [])),
+                        "plan": _section(text, "Plan"),
+                        "acceptance": _section(text, "Acceptance criteria"),
+                    }
+                    if _significant_change(old_fm_compare, new_fm_compare):
                         try:
                             task_state = _task_state_from_file(f, fm)
                             laya_result = classify_task(task_state)
-                            laya_pre = json.dumps(laya_result)
-                            laya_pre_version = _now()
-                            complexity = laya_result.get("complexity", "medium")
-                            # Adjust priority if Laya recommends
-                            if laya_result.get("priority_adjust") == "escalate":
-                                current_p = str(fm.get("priority", "P2"))
-                                if current_p.startswith("P"):
-                                    num = int(current_p[1:])
-                                    if num > 1:
-                                        fm["priority"] = f"P{num - 1}"
-                                        st = str(fm.get("status", "new")).strip()
-                                        if st not in STATUSES:
-                                            st = "new"
+                            with db_conn() as c:
+                                c.execute(
+                                    "UPDATE tasks SET laya_pre=?, laya_pre_version=?, complexity=? WHERE id=?",
+                                    (
+                                        json.dumps(laya_result),
+                                        _now(),
+                                        laya_result.get("complexity", row["complexity"]),
+                                        tid,
+                                    ),
+                                )
                         except Exception:
-                            pass  # Laya fallback: use defaults
-                    elif tid in rows and row["mtime"] != mtime:
-                        # Task changed → reclassify if significant
-                        old_laya = json.loads(row.get("laya_pre") or "{}")
-                        # Extract plan/acceptance from task file for comparison
-                        text = f.read_text() if f.exists() else ""
-                        old_fm_compare = {
-                            "files_scope": _as_list(old_laya.get("files_scope", [])),
-                            "depends_on": _as_list(old_laya.get("depends_on", [])),
-                            "plan": old_laya.get("plan_summary", ""),
-                            "acceptance": old_laya.get("acceptance_summary", ""),
-                        }
-                        new_fm_compare = {
-                            "files_scope": _as_list(fm.get("files_scope", [])),
-                            "depends_on": _as_list(fm.get("depends_on", [])),
-                            "plan": _section(text, "Plan"),
-                            "acceptance": _section(text, "Acceptance criteria"),
-                        }
-                        if _significant_change(old_fm_compare, new_fm_compare):
-                            try:
-                                task_state = _task_state_from_file(f, fm)
-                                laya_result = classify_task(task_state)
-                                laya_pre = json.dumps(laya_result)
-                                laya_pre_version = _now()
-                                complexity = laya_result.get("complexity", row["complexity"])
-                            except Exception:
-                                # Keep existing classification on failure
-                                laya_pre = row.get("laya_pre", "{}")
-                                laya_pre_version = row.get("laya_pre_version", "")
-                                complexity = row["complexity"]
+                            pass
+            else:
+                # New task → classify and insert
+                laya_pre = "{}"
+                laya_pre_version = ""
+                complexity = "medium"
+
+                if LAYA_ENABLED and laya_available():
+                    try:
+                        task_state = _task_state_from_file(f, fm)
+                        laya_result = classify_task(task_state)
+                        laya_pre = json.dumps(laya_result)
+                        laya_pre_version = _now()
+                        complexity = laya_result.get("complexity", "medium")
+                        # Adjust priority if Laya recommends
+                        if laya_result.get("priority_adjust") == "escalate":
+                            current_p = str(fm.get("priority", "P2"))
+                            if current_p.startswith("P"):
+                                num = int(current_p[1:])
+                                if num > 1:
+                                    fm["priority"] = f"P{num - 1}"
+                                    st = str(fm.get("status", "new")).strip()
+                                    if st not in STATUSES:
+                                        st = "new"
+                    except Exception:
+                        pass  # Laya fallback: use defaults
 
                 with db_conn() as c:
                     c.execute(
@@ -935,9 +948,8 @@ def status_report(req: StatusReport):
                 "block_reason": block_reason,
             })
             with db_conn() as c:
-                c.execute("UPDATE tasks SET status=?, slot=?, claimed_at=?, retry_count=?, block_reason=? WHERE id=?",
-                          (status, req.slot if status == "ready" else None,
-                           _now() if status == "ready" else None, retry, block_reason, req.task_id))
+                c.execute("UPDATE tasks SET status=?, slot=NULL, claimed_at=NULL, retry_count=?, block_reason=? WHERE id=?",
+                          (status, retry, block_reason, req.task_id))
             pipeline_log("REVIEW", req.task_id, f"{status} (slot={req.slot}, merge failed)")
             audit(req.slot, req.task_id, "merge-fail-retry", f"retry {retry}/{max_r}")
             out["next"] = "ready" if status == "ready" else "blocked"
@@ -996,9 +1008,9 @@ def status_report(req: StatusReport):
             })
             with db_conn() as c:
                 c.execute(
-                    "UPDATE tasks SET status='blocked', slot=?, claimed_at=?, "
+                    "UPDATE tasks SET status='blocked', slot=NULL, claimed_at=NULL, "
                     "retry_count=?, block_reason=? WHERE id=?",
-                    (req.slot, _now(), retry, block_reason, req.task_id),
+                    (retry, block_reason, req.task_id),
                 )
             pipeline_log("REVIEW", req.task_id, f"escalated (slot={req.slot}): {block_reason}")
             audit(req.slot, req.task_id, "escalate", block_reason)
@@ -1057,10 +1069,9 @@ def status_report(req: StatusReport):
         })
         with db_conn() as c:
             c.execute(
-                "UPDATE tasks SET status=?, slot=?, claimed_at=?, "
+                "UPDATE tasks SET status=?, slot=NULL, claimed_at=NULL, "
                 "retry_count=?, block_reason=? WHERE id=?",
-                (status, req.slot if status == "ready" else None,
-                 _now() if status == "ready" else None, retry, block_reason, req.task_id),
+                (status, retry, block_reason, req.task_id),
             )
         pipeline_log("REVIEW", req.task_id, f"{status} (slot={req.slot})")
         audit(req.slot, req.task_id, "review", f"round {retry} ({laya_triage.get('verdict', 'retry')})")
