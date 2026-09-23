@@ -324,8 +324,24 @@ def api_run_pipeline(req: PipelineRunReq) -> dict:
         else:
             pipeline = default_pipeline()
 
-        task_data = req.task_data
+        task_data = dict(req.task_data) if req.task_data else {}
         task_data["id"] = req.task_id
+
+        # Auto-hydrate task data from tasks table if available
+        try:
+            row = conn.execute("SELECT * FROM tasks WHERE id=?", (req.task_id,)).fetchone()
+            if row:
+                for k in ("project", "type", "priority", "files_scope", "depends_on", "verification", "retry_count", "complexity"):
+                    if k not in task_data and k in row.keys() and row[k] is not None:
+                        val = row[k]
+                        if k in ("files_scope", "depends_on", "verification") and isinstance(val, str):
+                            try:
+                                val = json.loads(val)
+                            except Exception:
+                                pass
+                        task_data[k] = val
+        except Exception:
+            pass
 
         runtime = PipelineRuntime(pipeline, task_data, db_conn=conn)
         execution = runtime.run()
